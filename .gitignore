@@ -1,0 +1,24 @@
+.env
+*.env
+*.env.local
+node_modules/
+dist/
+build/
+.DS_Store
+coverage/
+*.log
+
+# go
+apps/backend/bin/
+apps/backend/tmp/
+
+# secrets
+*.key
+*.pem
+*.age
+backup/*.tar.gz
+backup/*.sql
+
+# editor
+.idea/
+.vscode/
