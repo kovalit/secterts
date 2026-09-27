@@ -22,3 +22,6 @@ backup/*.sql
 # editor
 .idea/
 .vscode/
+
+# TS build info
+*.tsbuildinfo
