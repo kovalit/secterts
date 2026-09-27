@@ -150,3 +150,68 @@ APP_MASTER_KEY_BASE64=...
 04_chrome_extension_project.md
 05_repo_structure_and_stages.md
 ```
+
+---
+
+## Реализация
+
+Monorepo из трёх приложений:
+
+```text
+apps/backend/           # Go API (chi, pgx, argon2id, AES-256-GCM)
+apps/frontend/          # React + TypeScript + Vite web UI
+apps/chrome-extension/  # Chrome MV3 extension (TypeScript + Vite)
+deploy/                 # docker-compose, nginx, env-примеры
+scripts/                # backup/restore/generate-master-key
+```
+
+### Быстрый старт через Docker Compose
+
+```bash
+# 1. Сгенерировать master key и создать deploy/backend.env
+cp deploy/backend.env.example deploy/backend.env
+./scripts/generate-master-key.sh   # вставьте APP_MASTER_KEY_V1_BASE64 в deploy/backend.env
+
+# 2. Поднять PostgreSQL + backend + frontend
+make docker-up      # или: docker compose -f deploy/docker-compose.yml up -d
+```
+
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8080 (health: `GET /health`)
+
+Backend автоматически применяет миграции при старте.
+
+### Локальная разработка
+
+```bash
+# PostgreSQL (например, через docker) + переменные окружения из deploy/backend.env
+
+# Backend
+make backend        # go run ./cmd/api   (миграции применяются автоматически)
+make migrate        # применить миграции отдельно
+make backend-test   # unit-тесты (crypto, argon2id, извлечение домена)
+
+# Frontend
+cd apps/frontend && cp ../../deploy/frontend.env.example .env.local && npm install && npm run dev
+
+# Chrome extension
+cd apps/chrome-extension && npm install && npm run build
+# затем chrome://extensions → «Загрузить распакованное расширение» → apps/chrome-extension/dist
+# в options укажите API URL (http://localhost:8080) и токен из веб-приложения
+```
+
+### Поток авторизации (email 2FA)
+
+Вход всегда двухшаговый: `email + пароль` → код на email → сессия в HttpOnly cookie.
+Если `SMTP_HOST` не задан, код 2FA выводится в логи backend (удобно для разработки).
+
+### Ключевые переменные окружения backend
+
+```env
+DATABASE_URL=postgres://postgres:postgres@postgres:5432/secrets_center?sslmode=disable
+APP_MASTER_KEY_V1_BASE64=<32 байта в base64>   # обязательно; потеря = невозможность расшифровки
+CORS_ORIGINS=http://localhost:5173
+COOKIE_SECURE=false                            # true только за HTTPS
+```
+
+Полный список — в `deploy/backend.env.example` и `docs/02_backend_go_project.md`.
