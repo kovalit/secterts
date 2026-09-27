@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Secrets Center",
+  "version": "0.1.0",
+  "description": "Copy login and password from Secrets Center by current domain.",
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "action": {
+    "default_title": "Secrets Center",
+    "default_popup": "src/popup/popup.html"
+  },
+  "background": {
+    "service_worker": "src/background/service-worker.ts",
+    "type": "module"
+  },
+  "permissions": ["activeTab", "storage", "clipboardWrite"],
+  "host_permissions": ["http://localhost:8080/*", "https://your-secrets-api.example.com/*"],
+  "options_page": "src/options/options.html"
+}
