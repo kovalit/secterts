@@ -56,7 +56,7 @@ type PasswordFilter struct {
 }
 
 const passwordColumns = `
-	id, owner_user_id, company_id, group_id, scope, title, site_url, domain, favicon_url, icon_source,
+	id, owner_user_id, company_id, group_id, scope, title, site_url, domain, favicon_url, icon_source, custom_icon,
 	login, encrypted_password, password_nonce, password_key_version,
 	encrypted_comment, comment_nonce, comment_key_version,
 	created_at, updated_at, deleted_at`
@@ -64,7 +64,7 @@ const passwordColumns = `
 func scanPasswordEntry(row pgx.Row) (*PasswordEntry, error) {
 	var e PasswordEntry
 	err := row.Scan(
-		&e.ID, &e.OwnerUserID, &e.CompanyID, &e.GroupID, &e.Scope, &e.Title, &e.SiteURL, &e.Domain, &e.FaviconURL, &e.IconSource,
+		&e.ID, &e.OwnerUserID, &e.CompanyID, &e.GroupID, &e.Scope, &e.Title, &e.SiteURL, &e.Domain, &e.FaviconURL, &e.IconSource, &e.CustomIcon,
 		&e.Login, &e.EncryptedPassword, &e.PasswordNonce, &e.PasswordKeyVersion,
 		&e.EncryptedComment, &e.CommentNonce, &e.CommentKeyVersion,
 		&e.CreatedAt, &e.UpdatedAt, &e.DeletedAt)
@@ -159,12 +159,12 @@ func (s *Store) LookupByDomain(ctx context.Context, ownerUserID, domain string) 
 func (s *Store) CreatePasswordEntry(ctx context.Context, e *PasswordEntry) (*PasswordEntry, error) {
 	row := s.pool.QueryRow(ctx, `
 		INSERT INTO password_entries (
-			owner_user_id, company_id, group_id, scope, title, site_url, domain, favicon_url, icon_source,
+			owner_user_id, company_id, group_id, scope, title, site_url, domain, favicon_url, icon_source, custom_icon,
 			login, encrypted_password, password_nonce, password_key_version,
 			encrypted_comment, comment_nonce, comment_key_version)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
 		RETURNING `+passwordColumns,
-		e.OwnerUserID, e.CompanyID, e.GroupID, e.Scope, e.Title, e.SiteURL, e.Domain, e.FaviconURL, e.IconSource,
+		e.OwnerUserID, e.CompanyID, e.GroupID, e.Scope, e.Title, e.SiteURL, e.Domain, e.FaviconURL, e.IconSource, e.CustomIcon,
 		e.Login, e.EncryptedPassword, e.PasswordNonce, e.PasswordKeyVersion,
 		e.EncryptedComment, e.CommentNonce, e.CommentKeyVersion)
 	return scanPasswordEntry(row)
@@ -174,12 +174,12 @@ func (s *Store) CreatePasswordEntry(ctx context.Context, e *PasswordEntry) (*Pas
 func (s *Store) UpdatePasswordEntry(ctx context.Context, e *PasswordEntry) (*PasswordEntry, error) {
 	row := s.pool.QueryRow(ctx, `
 		UPDATE password_entries SET
-			company_id=$3, group_id=$4, scope=$5, title=$6, site_url=$7, domain=$8, favicon_url=$9, icon_source=$10,
-			login=$11, encrypted_password=$12, password_nonce=$13, password_key_version=$14,
-			encrypted_comment=$15, comment_nonce=$16, comment_key_version=$17, updated_at=now()
+			company_id=$3, group_id=$4, scope=$5, title=$6, site_url=$7, domain=$8, favicon_url=$9, icon_source=$10, custom_icon=$11,
+			login=$12, encrypted_password=$13, password_nonce=$14, password_key_version=$15,
+			encrypted_comment=$16, comment_nonce=$17, comment_key_version=$18, updated_at=now()
 		WHERE id=$1 AND owner_user_id=$2 AND deleted_at IS NULL
 		RETURNING `+passwordColumns,
-		e.ID, e.OwnerUserID, e.CompanyID, e.GroupID, e.Scope, e.Title, e.SiteURL, e.Domain, e.FaviconURL, e.IconSource,
+		e.ID, e.OwnerUserID, e.CompanyID, e.GroupID, e.Scope, e.Title, e.SiteURL, e.Domain, e.FaviconURL, e.IconSource, e.CustomIcon,
 		e.Login, e.EncryptedPassword, e.PasswordNonce, e.PasswordKeyVersion,
 		e.EncryptedComment, e.CommentNonce, e.CommentKeyVersion)
 	res, err := scanPasswordEntry(row)

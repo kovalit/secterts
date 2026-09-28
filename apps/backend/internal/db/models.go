@@ -74,6 +74,7 @@ type PasswordEntry struct {
 	Domain     *string
 	FaviconURL *string
 	IconSource string
+	CustomIcon *string
 
 	Login              *string
 	EncryptedPassword  []byte

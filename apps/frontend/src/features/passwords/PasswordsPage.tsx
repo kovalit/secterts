@@ -170,11 +170,19 @@ export function PasswordsPage() {
                     <td>
                       <div className="flex items-center gap-3">
                         <EntryIcon
+                          iconUrl={e.custom_icon}
                           faviconUrl={e.favicon_url}
                           groupIcon={groups.find((g) => g.id === e.group_id)?.icon}
                         />
                         <div className="min-w-0">
-                          <div className="font-medium text-ink-strong truncate">{e.title}</div>
+                          <button
+                            type="button"
+                            className="block font-medium text-ink-strong truncate text-left hover:text-accent transition-colors"
+                            onClick={() => openEdit(e)}
+                            title="Открыть запись"
+                          >
+                            {e.title}
+                          </button>
                           {e.domain && <div className="text-[12.5px] text-ink-muted truncate">{e.domain}</div>}
                         </div>
                       </div>
@@ -235,13 +243,18 @@ export function PasswordsPage() {
               <div key={e.id} className="card p-4">
                 <div className="flex items-center gap-3">
                   <EntryIcon
+                    iconUrl={e.custom_icon}
                     faviconUrl={e.favicon_url}
                     groupIcon={groups.find((g) => g.id === e.group_id)?.icon}
                   />
-                  <div className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 text-left"
+                    onClick={() => openEdit(e)}
+                  >
                     <div className="font-medium text-ink-strong truncate">{e.title}</div>
                     <div className="text-[12.5px] text-ink-muted truncate">{e.login ?? e.domain ?? '—'}</div>
-                  </div>
+                  </button>
                   <div className="flex gap-1">
                     <button className="icon-btn w-8 h-8" onClick={() => openEdit(e)}>
                       <Pencil size={15} />

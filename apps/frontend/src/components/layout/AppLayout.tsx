@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
-import { LogOut, Menu, X } from 'lucide-react'
+import { Lock, LogOut, Menu, X } from 'lucide-react'
 import { Sidebar } from './Sidebar'
 import { useAuth } from '../../features/auth/AuthProvider'
 import { useToast } from '../ui/Toast'
@@ -27,6 +27,24 @@ export function AppLayout() {
           >
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
+
+          {/* Brand */}
+          <div className="flex items-center gap-2.5">
+            <span
+              className="grid place-items-center w-8 h-8 rounded-lg text-white shrink-0"
+              style={{
+                background: 'linear-gradient(135deg,#3B82F6,#1D4ED8)',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,.25), 0 2px 6px rgba(37,99,235,.35)',
+              }}
+            >
+              <Lock size={16} />
+            </span>
+            <div className="leading-tight">
+              <div className="text-[15px] font-bold text-ink-strong">Secrets Center</div>
+              <div className="text-[11px] text-ink-muted hidden sm:block">Хранилище секретов</div>
+            </div>
+          </div>
+
           <div className="flex-1" />
           <div className="flex items-center gap-3">
             {user && (

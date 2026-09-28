@@ -34,7 +34,8 @@ export type PasswordEntry = {
   site_url?: string | null
   domain?: string | null
   favicon_url?: string | null
-  icon_source: 'favicon' | 'group'
+  icon_source: 'favicon' | 'group' | 'custom'
+  custom_icon?: string | null
   login?: string | null
   has_password: boolean
   has_comment: boolean

@@ -85,26 +85,30 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 }
 
 type writeRequest struct {
-	Scope     string  `json:"scope"`
-	CompanyID *string `json:"company_id"`
-	GroupID   string  `json:"group_id"`
-	Title     string  `json:"title"`
-	SiteURL   *string `json:"site_url"`
-	Login     *string `json:"login"`
-	Password  string  `json:"password"`
-	Comment   *string `json:"comment"`
+	Scope      string  `json:"scope"`
+	CompanyID  *string `json:"company_id"`
+	GroupID    string  `json:"group_id"`
+	Title      string  `json:"title"`
+	SiteURL    *string `json:"site_url"`
+	Login      *string `json:"login"`
+	Password   string  `json:"password"`
+	Comment    *string `json:"comment"`
+	IconSource *string `json:"icon_source"`
+	CustomIcon *string `json:"custom_icon"`
 }
 
 func (in writeRequest) toInput() WriteInput {
 	return WriteInput{
-		Scope:     in.Scope,
-		CompanyID: in.CompanyID,
-		GroupID:   in.GroupID,
-		Title:     in.Title,
-		SiteURL:   in.SiteURL,
-		Login:     in.Login,
-		Password:  in.Password,
-		Comment:   in.Comment,
+		Scope:      in.Scope,
+		CompanyID:  in.CompanyID,
+		GroupID:    in.GroupID,
+		Title:      in.Title,
+		SiteURL:    in.SiteURL,
+		Login:      in.Login,
+		Password:   in.Password,
+		Comment:    in.Comment,
+		IconSource: in.IconSource,
+		CustomIcon: in.CustomIcon,
 	}
 }
 

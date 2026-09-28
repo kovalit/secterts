@@ -95,11 +95,12 @@ DATABASE_URL=postgres://postgres:postgres@postgres:5432/secrets_center?sslmode=d
 APP_MASTER_KEY_V1_BASE64=base64_32_bytes_key
 JWT_ACCESS_SECRET=...
 COOKIE_DOMAIN=localhost
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_USER=...
+SMTP_HOST=smtp.timeweb.ru
+SMTP_PORT=2525
+SMTP_USER=system@whatsbetter.me
 SMTP_PASSWORD=...
-EMAIL_FROM=no-reply@example.com
+EMAIL_FROM=system@whatsbetter.me
+SMTP_INSECURE_TLS=false
 CORS_ORIGINS=http://localhost:5173
 ```
 
@@ -414,29 +415,13 @@ GET  /api/backups
 
 ```yaml
 services:
-  postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: secrets_center
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
   backend:
-    build:
-      context: ../apps/backend
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}
+    restart: unless-stopped
     env_file:
-      - ../deploy/backend.env
+      - .env
     ports:
-      - "8080:8080"
-    depends_on:
-      - postgres
-
-volumes:
-  postgres_data:
+      - "127.0.0.1:${BACKEND_PORT:-9063}:8080"
 ```
 
 ---

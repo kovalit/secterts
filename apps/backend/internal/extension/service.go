@@ -113,7 +113,12 @@ func (s *Service) Lookup(ctx context.Context, userID, domain string) ([]LookupIt
 	out := make([]LookupItem, 0, len(entries))
 	for i := range entries {
 		e := &entries[i]
-		out = append(out, LookupItem{ID: e.ID, Title: e.Title, Login: e.Login, FaviconURL: e.FaviconURL, Scope: e.Scope})
+		// Prefer a user-uploaded custom icon over the resolved favicon.
+		icon := e.FaviconURL
+		if e.CustomIcon != nil && *e.CustomIcon != "" {
+			icon = e.CustomIcon
+		}
+		out = append(out, LookupItem{ID: e.ID, Title: e.Title, Login: e.Login, FaviconURL: icon, Scope: e.Scope})
 	}
 	return out, nil
 }

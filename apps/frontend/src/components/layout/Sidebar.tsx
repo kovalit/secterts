@@ -7,7 +7,6 @@ import {
   ShieldCheck,
   Puzzle,
   List,
-  Lock,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 
@@ -90,23 +89,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   ]
 
   return (
-    <div className="h-full flex flex-col p-4" onClick={onNavigate}>
-      <div className="flex items-center gap-2.5 px-1.5 mb-5">
-        <span
-          className="grid place-items-center w-8 h-8 rounded-lg text-white"
-          style={{
-            background: 'linear-gradient(135deg,#3B82F6,#1D4ED8)',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,.25), 0 2px 6px rgba(37,99,235,.35)',
-          }}
-        >
-          <Lock size={16} />
-        </span>
-        <div className="leading-tight">
-          <div className="text-[15px] font-bold text-ink-strong">Secrets Center</div>
-          <div className="text-[11px] text-ink-muted">Хранилище секретов</div>
-        </div>
-      </div>
-
+    <div className="h-full flex flex-col p-4 pt-5" onClick={onNavigate}>
       <Section title="Пароли" items={passwordItems} />
       <Section title="Секреты приложений" items={secretItems} />
       <Section title="Настройки" items={settingsItems} />

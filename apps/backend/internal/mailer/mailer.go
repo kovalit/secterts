@@ -3,9 +3,12 @@
 package mailer
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
-	"net/smtp"
+	"time"
+
+	gomail "gopkg.in/mail.v2"
 )
 
 // Mailer sends plaintext emails.
@@ -15,11 +18,12 @@ type Mailer interface {
 
 // Config for the SMTP mailer.
 type Config struct {
-	Host     string
-	Port     int
-	User     string
-	Password string
-	From     string
+	Host        string
+	Port        int
+	User        string
+	Password    string
+	InsecureTLS bool
+	From        string
 }
 
 // New returns an SMTP mailer, or a stdout logger mailer when Host is empty.
@@ -41,13 +45,26 @@ func (m *logMailer) Send(to, subject, body string) error {
 type smtpMailer struct{ cfg Config }
 
 func (m *smtpMailer) Send(to, subject, body string) error {
-	addr := fmt.Sprintf("%s:%d", m.cfg.Host, m.cfg.Port)
-	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s",
-		m.cfg.From, to, subject, body)
-
-	var auth smtp.Auth
-	if m.cfg.User != "" {
-		auth = smtp.PlainAuth("", m.cfg.User, m.cfg.Password, m.cfg.Host)
+	if to == "" {
+		return fmt.Errorf("mailer: recipient is required")
 	}
-	return smtp.SendMail(addr, auth, m.cfg.From, []string{to}, []byte(msg))
+
+	msg := gomail.NewMessage()
+	msg.SetHeader("From", m.cfg.From)
+	msg.SetHeader("To", to)
+	msg.SetHeader("Subject", subject)
+	msg.SetBody("text/plain", body)
+
+	dialer := gomail.NewDialer(m.cfg.Host, m.cfg.Port, m.cfg.User, m.cfg.Password)
+	dialer.Timeout = 15 * time.Second
+	dialer.TLSConfig = &tls.Config{
+		MinVersion:         tls.VersionTLS12,
+		ServerName:         m.cfg.Host,
+		InsecureSkipVerify: m.cfg.InsecureTLS, // explicitly opt-in for local SMTP only
+	}
+
+	if err := dialer.DialAndSend(msg); err != nil {
+		return fmt.Errorf("mailer: send via %s:%d: %w", m.cfg.Host, m.cfg.Port, err)
+	}
+	return nil
 }

@@ -45,18 +45,14 @@ secrets-center/
 │   ├── 03_frontend_react_project.md
 │   └── 04_chrome_extension_project.md
 │
-├── deploy/
-│   ├── docker-compose.yml
-│   ├── backend.env.example
-│   ├── frontend.env.example
-│   └── nginx/
-│
 ├── scripts/
 │   ├── backup.sh
 │   ├── restore.sh
 │   └── generate-master-key.sh
 │
 ├── .gitignore
+├── .env
+├── docker-compose.yml
 ├── README.md
 └── Makefile
 ```
@@ -92,7 +88,7 @@ backup/*.sql
 .PHONY: dev backend frontend extension docker-up docker-down migrate
 
 dev:
-	docker compose -f deploy/docker-compose.yml up
+	docker compose --env-file .env -f docker-compose.yml up
 
 backend:
 	cd apps/backend && go run ./cmd/api
@@ -104,10 +100,10 @@ extension:
 	cd apps/chrome-extension && npm run dev
 
 docker-up:
-	docker compose -f deploy/docker-compose.yml up -d
+	docker compose --env-file .env -f docker-compose.yml up -d
 
 docker-down:
-	docker compose -f deploy/docker-compose.yml down
+	docker compose --env-file .env -f docker-compose.yml down
 
 migrate:
 	cd apps/backend && go run ./cmd/migrate
@@ -119,39 +115,13 @@ migrate:
 
 ```yaml
 services:
-  postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: secrets_center
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
   backend:
-    build:
-      context: ../apps/backend
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}
+    restart: unless-stopped
     env_file:
-      - ./backend.env
+      - .env
     ports:
-      - "8080:8080"
-    depends_on:
-      - postgres
-
-  frontend:
-    build:
-      context: ../apps/frontend
-    environment:
-      VITE_API_URL: http://localhost:8080
-    ports:
-      - "5173:80"
-    depends_on:
-      - backend
-
-volumes:
-  postgres_data:
+      - "127.0.0.1:${BACKEND_PORT:-9063}:8080"
 ```
 
 ---
@@ -162,7 +132,7 @@ volumes:
 
 ```text
 - создать monorepo;
-- поднять PostgreSQL;
+- подключить существующую PostgreSQL;
 - создать Go API;
 - создать React UI;
 - создать Chrome extension skeleton;
@@ -176,7 +146,8 @@ volumes:
 apps/backend на Go,
 apps/frontend на React + TypeScript + Vite,
 apps/chrome-extension на Manifest V3 + TypeScript.
-Добавь deploy/docker-compose.yml с PostgreSQL, backend и frontend.
+Добавь корневой docker-compose.yml только с backend; PostgreSQL уже существует.
+Frontend запускается через Vite локально и деплоится как статический `dist`.
 Добавь Makefile и README.
 Проект должен запускаться локально.
 ```

@@ -60,7 +60,8 @@ func run() error {
 	store := db.NewStore(pool)
 	auditSvc := audit.New(store)
 	mail := mailer.New(mailer.Config{
-		Host: cfg.SMTPHost, Port: cfg.SMTPPort, User: cfg.SMTPUser, Password: cfg.SMTPPassword, From: cfg.EmailFrom,
+		Host: cfg.SMTPHost, Port: cfg.SMTPPort, User: cfg.SMTPUser, Password: cfg.SMTPPassword,
+		InsecureTLS: cfg.SMTPInsecureTLS, From: cfg.EmailFrom,
 	})
 
 	authSvc := auth.NewService(store, mail)

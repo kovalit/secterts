@@ -27,49 +27,57 @@ function renderError(html: string) {
   content.innerHTML = `<div class="error-box">${html}</div>`
 }
 
-function iconMarkup(item: LookupItem): string {
-  if (item.favicon_url) {
+function iconMarkup(item?: LookupItem): string {
+  if (item?.favicon_url) {
     return `<span class="item-icon"><img src="${item.favicon_url}" alt="" onerror="this.style.display='none'" /></span>`
   }
   return `<span class="item-icon">🔑</span>`
 }
 
+function copyIcon(): string {
+  return `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`
+}
+
+function fieldRow(label: string, valueHtml: string, act: 'login' | 'password', mono: boolean): string {
+  return `
+    <div class="field">
+      <div class="field-body">
+        <div class="field-label">${label}</div>
+        <div class="field-value ${mono ? 'mono' : ''}">${valueHtml}</div>
+      </div>
+      <button class="copy-btn" data-act="${act}" title="Копировать ${label.toLowerCase()}">${copyIcon()}</button>
+    </div>`
+}
+
 function renderItems() {
+  const item = selected()
   const multiple = items.length > 1
-  const list = items
-    .map((it) => {
-      const selected = it.id === selectedId
-      if (multiple) {
-        return `
-          <label class="item ${selected ? 'selected' : ''}">
-            <div class="radio-row">
-              <input type="radio" name="entry" value="${it.id}" ${selected ? 'checked' : ''} />
+
+  // Entry picker (only when several entries match the domain).
+  const selector = multiple
+    ? `<div class="selector">${items
+        .map(
+          (it) => `
+            <label class="radio-row ${it.id === selectedId ? 'selected' : ''}">
+              <input type="radio" name="entry" value="${it.id}" ${it.id === selectedId ? 'checked' : ''} />
               ${iconMarkup(it)}
-              <div style="min-width:0">
-                <div class="item-title">${escapeHtml(it.title)}</div>
-                <div class="item-login">${escapeHtml(it.login ?? '')}</div>
-              </div>
-            </div>
-          </label>`
-      }
-      return `
-        <div class="item selected">
-          <div class="item-head">
-            ${iconMarkup(it)}
-            <div style="min-width:0">
-              <div class="item-title">${escapeHtml(it.title)}</div>
-              <div class="item-login">${escapeHtml(it.login ?? '')}</div>
-            </div>
-          </div>
-        </div>`
-    })
-    .join('')
+              <span class="radio-title">${escapeHtml(it.title)}</span>
+            </label>`,
+        )
+        .join('')}</div>`
+    : ''
+
+  const loginHtml = item?.login ? escapeHtml(item.login) : '<span class="empty">нет логина</span>'
 
   content.innerHTML = `
-    ${list}
-    <div class="item-actions">
-      <button class="btn" id="copyLogin">Копировать логин</button>
-      <button class="btn btn-primary" id="copyPassword">Копировать пароль</button>
+    ${selector}
+    <div class="entry">
+      <div class="entry-head">
+        ${iconMarkup(item)}
+        <div class="entry-title">${escapeHtml(item?.title ?? '')}</div>
+      </div>
+      ${fieldRow('Логин', loginHtml, 'login', false)}
+      ${fieldRow('Пароль', '•••••••••••', 'password', true)}
     </div>
   `
 
@@ -82,8 +90,12 @@ function renderItems() {
     })
   }
 
-  document.getElementById('copyLogin')?.addEventListener('click', onCopyLogin)
-  document.getElementById('copyPassword')?.addEventListener('click', onCopyPassword)
+  content.querySelectorAll<HTMLButtonElement>('.copy-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (btn.getAttribute('data-act') === 'login') void onCopyLogin()
+      else void onCopyPassword()
+    })
+  })
 }
 
 function selected(): LookupItem | undefined {
@@ -134,7 +146,11 @@ async function init() {
   document.getElementById('openOptions')?.addEventListener('click', () => chrome.runtime.openOptionsPage())
   document.getElementById('openWeb')?.addEventListener('click', async () => {
     const s = await getSettings()
-    const base = s.apiBaseUrl.replace(/:8080$/, ':5173')
+    // On localhost the web app runs on the Vite dev port; in production it is
+    // served from the same origin as the API.
+    const base = s.apiBaseUrl.includes('localhost')
+      ? s.apiBaseUrl.replace(/:8080$/, ':5173')
+      : s.apiBaseUrl
     chrome.tabs.create({ url: base || 'http://localhost:5173' })
   })
 

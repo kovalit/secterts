@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import {
   Code,
   Folder,
@@ -20,34 +21,44 @@ export function GroupIcon({ icon, size = 16 }: { icon?: string; size?: number })
   return <Cmp size={size} />
 }
 
-// Favicon with graceful fallback to the group icon.
+// Entry icon: a custom uploaded icon or resolved favicon, with a graceful
+// fallback to the group icon when there is none or the image fails to load.
 export function EntryIcon({
+  iconUrl,
   faviconUrl,
   groupIcon,
   size = 20,
 }: {
+  iconUrl?: string | null
   faviconUrl?: string | null
   groupIcon?: string
   size?: number
 }) {
+  const src = iconUrl || faviconUrl || null
+  const [failed, setFailed] = useState(false)
+
+  // The icon fills the whole box (no padded background), so it reads larger.
+  const box = size + 12
+
+  // Reset the error state whenever the source changes.
+  useEffect(() => setFailed(false), [src])
+
   return (
     <span
-      className="grid place-items-center rounded-md bg-accent-50 text-accent overflow-hidden shrink-0"
-      style={{ width: size + 12, height: size + 12 }}
+      className="grid place-items-center text-accent overflow-hidden shrink-0"
+      style={{ width: box, height: box }}
     >
-      {faviconUrl ? (
+      {src && !failed ? (
         <img
-          src={faviconUrl}
+          src={src}
           alt=""
-          width={size}
-          height={size}
-          onError={(e) => {
-            // Hide broken favicons; the group icon underneath shows instead.
-            ;(e.currentTarget as HTMLImageElement).style.display = 'none'
-          }}
+          width={box}
+          height={box}
+          className="object-contain w-full h-full"
+          onError={() => setFailed(true)}
         />
       ) : (
-        <GroupIcon icon={groupIcon} size={size - 2} />
+        <GroupIcon icon={groupIcon} size={box} />
       )}
     </span>
   )

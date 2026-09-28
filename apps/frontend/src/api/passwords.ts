@@ -18,6 +18,8 @@ export type PasswordWrite = {
   login?: string | null
   password?: string
   comment?: string | null
+  icon_source?: 'favicon' | 'group' | 'custom'
+  custom_icon?: string | null
 }
 
 function toQuery(filters: PasswordFilters): string {

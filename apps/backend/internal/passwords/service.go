@@ -34,14 +34,16 @@ func New(store *db.Store, enc crypto.Encryptor) *Service {
 
 // WriteInput is the payload for creating/updating an entry.
 type WriteInput struct {
-	Scope     string
-	CompanyID *string
-	GroupID   string
-	Title     string
-	SiteURL   *string
-	Login     *string
-	Password  string // required on create; empty on update = keep existing
-	Comment   *string
+	Scope      string
+	CompanyID  *string
+	GroupID    string
+	Title      string
+	SiteURL    *string
+	Login      *string
+	Password   string // required on create; empty on update = keep existing
+	Comment    *string
+	IconSource *string // "favicon" | "group" | "custom"; nil = auto-detect
+	CustomIcon *string // data URL, used when IconSource == "custom"
 }
 
 // View is the safe representation of an entry (never includes the password).
@@ -55,6 +57,7 @@ type View struct {
 	Domain      *string   `json:"domain"`
 	FaviconURL  *string   `json:"favicon_url"`
 	IconSource  string    `json:"icon_source"`
+	CustomIcon  *string   `json:"custom_icon"`
 	Login       *string   `json:"login"`
 	HasPassword bool      `json:"has_password"`
 	HasComment  bool      `json:"has_comment"`
@@ -73,6 +76,7 @@ func toView(e *db.PasswordEntry) View {
 		Domain:      e.Domain,
 		FaviconURL:  e.FaviconURL,
 		IconSource:  e.IconSource,
+		CustomIcon:  e.CustomIcon,
 		Login:       e.Login,
 		HasPassword: len(e.EncryptedPassword) > 0,
 		HasComment:  len(e.EncryptedComment) > 0,
@@ -126,7 +130,7 @@ func (s *Service) Create(ctx context.Context, ownerID string, in WriteInput) (*V
 		IconSource:  "group",
 	}
 
-	s.applyDomainAndFavicon(ctx, entry)
+	s.applyIcon(ctx, entry, in)
 
 	encPw, nonce, ver, err := s.enc.EncryptString(in.Password)
 	if err != nil {
@@ -165,7 +169,7 @@ func (s *Service) Update(ctx context.Context, ownerID, id string, in WriteInput)
 	existing.SiteURL = trimPtr(in.SiteURL)
 	existing.Login = in.Login
 
-	s.applyDomainAndFavicon(ctx, existing)
+	s.applyIcon(ctx, existing, in)
 
 	if in.Password != "" {
 		encPw, nonce, ver, err := s.enc.EncryptString(in.Password)
@@ -228,22 +232,51 @@ func (s *Service) encryptComment(e *db.PasswordEntry, comment string) error {
 	return nil
 }
 
-// applyDomainAndFavicon derives the domain from the site URL and probes favicon.
-func (s *Service) applyDomainAndFavicon(ctx context.Context, e *db.PasswordEntry) {
+// applyIcon derives the domain from the site URL and resolves the entry icon
+// according to the requested source:
+//
+//   - "custom": keep the supplied data URL (falls back to auto if it is invalid).
+//   - "group":  use the group icon, clearing any favicon/custom icon.
+//   - "favicon" or nil (auto): probe the site favicon, falling back to group.
+func (s *Service) applyIcon(ctx context.Context, e *db.PasswordEntry, in WriteInput) {
+	// Derive the domain first; it is needed for lookups and favicon probing.
 	e.Domain = nil
+	if e.SiteURL != nil && *e.SiteURL != "" {
+		if domain := ExtractDomain(*e.SiteURL); domain != "" {
+			e.Domain = &domain
+		}
+	}
+
+	source := ""
+	if in.IconSource != nil {
+		source = *in.IconSource
+	}
+
+	switch source {
+	case "custom":
+		if in.CustomIcon != nil && validCustomIcon(*in.CustomIcon) {
+			e.IconSource = "custom"
+			e.CustomIcon = in.CustomIcon
+			e.FaviconURL = nil
+			return
+		}
+		// Invalid/empty custom icon: fall through to auto-detection.
+	case "group":
+		e.IconSource = "group"
+		e.CustomIcon = nil
+		e.FaviconURL = nil
+		return
+	}
+
+	// Auto / "favicon": probe the site favicon, otherwise use the group icon.
+	e.CustomIcon = nil
 	e.FaviconURL = nil
 	e.IconSource = "group"
-	if e.SiteURL == nil || *e.SiteURL == "" {
-		return
-	}
-	domain := ExtractDomain(*e.SiteURL)
-	if domain == "" {
-		return
-	}
-	e.Domain = &domain
-	if faviconURL, ok := ResolveFavicon(ctx, domain); ok {
-		e.FaviconURL = &faviconURL
-		e.IconSource = "favicon"
+	if e.Domain != nil {
+		if faviconURL, ok := ResolveFavicon(ctx, *e.Domain); ok {
+			e.FaviconURL = &faviconURL
+			e.IconSource = "favicon"
+		}
 	}
 }
 
