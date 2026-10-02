@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ClipboardPaste, KeySquare, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, ClipboardPaste, Download, KeySquare, Pencil, Plus, Trash2 } from 'lucide-react'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageLoader, Spinner } from '../../components/ui/Spinner'
@@ -30,6 +30,7 @@ export function ProjectDetailPage() {
   const [toDelete, setToDelete] = useState<AppSecret | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulkText, setBulkText] = useState('')
+  const [downloading, setDownloading] = useState(false)
 
   const projectQ = useQuery({ queryKey: ['app-project', projectId], queryFn: () => appSecretsApi.getProject(projectId) })
   const envsQ = useQuery({
@@ -97,6 +98,30 @@ export function ProjectDetailPage() {
     setBulkOpen(true)
   }
 
+  // Download the current environment's secrets as a .env.<env> file. Values are
+  // decrypted on the backend (the export is audited) and saved via a Blob.
+  const downloadEnv = async () => {
+    if (!env) return
+    setDownloading(true)
+    try {
+      const { filename, content } = await appSecretsApi.exportSecrets(projectId, env)
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename || `.env.${env}`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      toast.success(`Файл ${filename} скачан`)
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Не удалось скачать файл')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   const openCreate = () => {
     setEditing(null)
     setKey('')
@@ -129,6 +154,15 @@ export function ProjectDetailPage() {
         description={projectQ.data?.description ?? 'Значения секретов зашифрованы и не показываются в списке.'}
         action={
           <div className="flex items-center gap-2">
+            <button
+              className="btn"
+              onClick={downloadEnv}
+              disabled={downloading || !currentEnv || secrets.length === 0}
+              title={`Скачать .env.${env || ''}`}
+            >
+              {downloading ? <Spinner size={16} /> : <Download size={16} />}
+              .env.{env}
+            </button>
             <button className="btn" onClick={openBulk} title="Создать секреты списком (Ctrl+V)">
               <ClipboardPaste size={16} />
               Списком

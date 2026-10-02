@@ -39,6 +39,10 @@ export const appSecretsApi = {
 
   listSecrets: (projectId: string, env: string) =>
     apiFetch<AppSecret[]>(`/api/app-projects/${projectId}/secrets?env=${encodeURIComponent(env)}`),
+  exportSecrets: (projectId: string, env: string) =>
+    apiFetch<{ filename: string; content: string }>(
+      `/api/app-projects/${projectId}/secrets/export?env=${encodeURIComponent(env)}`,
+    ),
   createSecret: (projectId: string, body: SecretWrite) =>
     apiFetch<AppSecret>(`/api/app-projects/${projectId}/secrets`, { method: 'POST', body }),
   bulkCreateSecrets: (projectId: string, body: BulkSecretsWrite) =>

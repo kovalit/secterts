@@ -401,6 +401,60 @@ func (s *Service) RevealSecret(ctx context.Context, ownerID, secretID string) (s
 	return s.enc.DecryptString(secret.EncryptedValue, secret.ValueNonce, secret.ValueKeyVersion)
 }
 
+// ExportEnv decrypts every secret of a project/environment and renders a
+// dotenv-style file. It returns the suggested file name (.env.<env>) and the
+// file content (KEY=VALUE lines, sorted by key). The caller writes the audit
+// entry.
+func (s *Service) ExportEnv(ctx context.Context, ownerID, projectID, envParam string) (filename, content string, err error) {
+	if _, err = s.store.GetAppProject(ctx, ownerID, projectID); err != nil {
+		return "", "", err
+	}
+	env, err := s.resolveEnv(ctx, projectID, envParam)
+	if err != nil {
+		return "", "", err
+	}
+	secrets, err := s.store.ListSecrets(ctx, projectID, env.ID)
+	if err != nil {
+		return "", "", err
+	}
+
+	var b strings.Builder
+	for i := range secrets {
+		value, derr := s.enc.DecryptString(secrets[i].EncryptedValue, secrets[i].ValueNonce, secrets[i].ValueKeyVersion)
+		if derr != nil {
+			return "", "", derr
+		}
+		b.WriteString(secrets[i].Key)
+		b.WriteByte('=')
+		b.WriteString(dotenvQuote(value))
+		b.WriteByte('\n')
+	}
+	return ".env." + env.Name, b.String(), nil
+}
+
+// dotenvQuote renders a value for a .env file, wrapping it in double quotes and
+// escaping when it contains characters that would otherwise break parsing
+// (whitespace, quotes, #, newlines, ...).
+func dotenvQuote(v string) string {
+	safe := v != ""
+	for _, r := range v {
+		if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			continue
+		}
+		switch r {
+		case '_', '.', '/', ':', '@', '-', '+', ',':
+			continue
+		}
+		safe = false
+		break
+	}
+	if safe {
+		return v
+	}
+	repl := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`, "\r", `\r`, "\t", `\t`)
+	return `"` + repl.Replace(v) + `"`
+}
+
 // --- helpers ---
 
 func (s *Service) resolveEnv(ctx context.Context, projectID, envParam string) (*db.AppEnvironment, error) {

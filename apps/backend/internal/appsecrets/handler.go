@@ -36,6 +36,7 @@ func (h *Handler) ProjectRoutes() http.Handler {
 	r.Post("/{project_id}/environments", h.createEnvironment)
 
 	r.Get("/{project_id}/secrets", h.listSecrets)
+	r.Get("/{project_id}/secrets/export", h.exportSecrets)
 	r.Post("/{project_id}/secrets", h.createSecret)
 	r.Post("/{project_id}/secrets/bulk", h.bulkCreateSecrets)
 	return r
@@ -223,6 +224,19 @@ func (h *Handler) createSecret(w http.ResponseWriter, r *http.Request) {
 	ip, ua := audit.FromRequest(r)
 	h.audit.Record(r.Context(), audit.Entry{UserID: &ownerID, Action: "app_secret_created", EntityType: "app_secret", EntityID: &v.ID, IP: ip, UserAgent: ua})
 	httpx.JSON(w, http.StatusCreated, v)
+}
+
+func (h *Handler) exportSecrets(w http.ResponseWriter, r *http.Request) {
+	ownerID := auth.CurrentUserID(r.Context())
+	projectID := chi.URLParam(r, "project_id")
+	filename, content, err := h.svc.ExportEnv(r.Context(), ownerID, projectID, r.URL.Query().Get("env"))
+	if err != nil {
+		h.writeErr(w, err)
+		return
+	}
+	ip, ua := audit.FromRequest(r)
+	h.audit.Record(r.Context(), audit.Entry{UserID: &ownerID, Action: "app_secret_exported", EntityType: "app_project", EntityID: &projectID, IP: ip, UserAgent: ua})
+	httpx.JSON(w, http.StatusOK, map[string]string{"filename": filename, "content": content})
 }
 
 type bulkSecretsRequest struct {
