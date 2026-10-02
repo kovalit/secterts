@@ -46,20 +46,23 @@ type groupExport struct {
 }
 
 type passwordExport struct {
-	ID                 string  `json:"id"`
-	OwnerUserID        string  `json:"owner_user_id"`
-	CompanyID          *string `json:"company_id"`
-	GroupID            string  `json:"group_id"`
-	Scope              string  `json:"scope"`
-	Title              string  `json:"title"`
-	SiteURL            *string `json:"site_url"`
-	Domain             *string `json:"domain"`
-	Login              *string `json:"login"`
-	EncryptedPassword  []byte  `json:"encrypted_password"`
-	PasswordNonce      []byte  `json:"password_nonce"`
-	PasswordKeyVersion int     `json:"password_key_version"`
-	EncryptedComment   []byte  `json:"encrypted_comment"`
-	CommentNonce       []byte  `json:"comment_nonce"`
+	ID                 string     `json:"id"`
+	OwnerUserID        string     `json:"owner_user_id"`
+	CompanyID          *string    `json:"company_id"`
+	GroupID            string     `json:"group_id"`
+	Scope              string     `json:"scope"`
+	Title              string     `json:"title"`
+	SiteURL            *string    `json:"site_url"`
+	Domain             *string    `json:"domain"`
+	Login              *string    `json:"login"`
+	EntryType          string     `json:"entry_type"`
+	ExpiresAt          *time.Time `json:"expires_at"`
+	Owner              *string    `json:"owner"`
+	EncryptedPassword  []byte     `json:"encrypted_password"`
+	PasswordNonce      []byte     `json:"password_nonce"`
+	PasswordKeyVersion int        `json:"password_key_version"`
+	EncryptedComment   []byte     `json:"encrypted_comment"`
+	CommentNonce       []byte     `json:"comment_nonce"`
 }
 
 type projectExport struct {
@@ -136,11 +139,13 @@ func build(ctx context.Context, pool *pgxpool.Pool) (*Document, error) {
 
 	if err := collect(ctx, pool, `
 		SELECT id, owner_user_id, company_id, group_id, scope, title, site_url, domain, login,
+			entry_type, expires_at, owner,
 			encrypted_password, password_nonce, password_key_version, encrypted_comment, comment_nonce
 		FROM password_entries WHERE deleted_at IS NULL ORDER BY created_at`,
 		func(rows pgx.Rows) error {
 			var p passwordExport
 			if err := rows.Scan(&p.ID, &p.OwnerUserID, &p.CompanyID, &p.GroupID, &p.Scope, &p.Title, &p.SiteURL, &p.Domain, &p.Login,
+				&p.EntryType, &p.ExpiresAt, &p.Owner,
 				&p.EncryptedPassword, &p.PasswordNonce, &p.PasswordKeyVersion, &p.EncryptedComment, &p.CommentNonce); err != nil {
 				return err
 			}

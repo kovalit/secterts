@@ -5,6 +5,8 @@ import {
   Building2,
   Boxes,
   ShieldCheck,
+  HeartPulse,
+  ClipboardList,
   Puzzle,
   List,
 } from 'lucide-react'
@@ -78,6 +80,11 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     { to: '/companies', label: 'Компании', icon: <Building2 size={16} /> },
   ]
 
+  const overviewItems: Item[] = [
+    { to: '/inventory', label: 'Инвентаризация', icon: <ClipboardList size={16} /> },
+    { to: '/health', label: 'Здоровье секретов', icon: <HeartPulse size={16} /> },
+  ]
+
   const secretItems: Item[] = [
     { to: '/app-secrets', label: 'Проекты', icon: <Boxes size={16} /> },
   ]
@@ -91,6 +98,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="h-full flex flex-col p-4 pt-5" onClick={onNavigate}>
       <Section title="Пароли" items={passwordItems} />
+      <Section title="Обзор" items={overviewItems} />
       <Section title="Секреты приложений" items={secretItems} />
       <Section title="Настройки" items={settingsItems} />
     </div>

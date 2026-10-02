@@ -5,6 +5,8 @@ import { LoginPage } from '../features/auth/LoginPage'
 import { RegisterPage } from '../features/auth/RegisterPage'
 import { VerifyEmailCodePage } from '../features/auth/VerifyEmailCodePage'
 import { PasswordsPage } from '../features/passwords/PasswordsPage'
+import { InventoryPage } from '../features/passwords/InventoryPage'
+import { HealthPage } from '../features/passwords/HealthPage'
 import { CompaniesPage } from '../features/companies/CompaniesPage'
 import { ProjectsPage } from '../features/app-secrets/ProjectsPage'
 import { ProjectDetailPage } from '../features/app-secrets/ProjectDetailPage'
@@ -25,6 +27,8 @@ export const router = createBrowserRouter([
     children: [
       { path: '/', element: <Navigate to="/passwords" replace /> },
       { path: '/passwords', element: <PasswordsPage /> },
+      { path: '/inventory', element: <InventoryPage /> },
+      { path: '/health', element: <HealthPage /> },
       { path: '/companies', element: <CompaniesPage /> },
       { path: '/app-secrets', element: <ProjectsPage /> },
       { path: '/app-secrets/:projectId', element: <ProjectDetailPage /> },

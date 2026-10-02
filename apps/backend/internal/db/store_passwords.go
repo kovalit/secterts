@@ -51,12 +51,14 @@ type PasswordFilter struct {
 	Scope     string
 	CompanyID string
 	GroupID   string
+	EntryType string
 	Query     string
 	Domain    string
 }
 
 const passwordColumns = `
 	id, owner_user_id, company_id, group_id, scope, title, site_url, domain, favicon_url, icon_source, custom_icon,
+	entry_type, expires_at, owner, password_strength, last_used_at,
 	login, encrypted_password, password_nonce, password_key_version,
 	encrypted_comment, comment_nonce, comment_key_version,
 	created_at, updated_at, deleted_at`
@@ -65,6 +67,7 @@ func scanPasswordEntry(row pgx.Row) (*PasswordEntry, error) {
 	var e PasswordEntry
 	err := row.Scan(
 		&e.ID, &e.OwnerUserID, &e.CompanyID, &e.GroupID, &e.Scope, &e.Title, &e.SiteURL, &e.Domain, &e.FaviconURL, &e.IconSource, &e.CustomIcon,
+		&e.EntryType, &e.ExpiresAt, &e.Owner, &e.PasswordStrength, &e.LastUsedAt,
 		&e.Login, &e.EncryptedPassword, &e.PasswordNonce, &e.PasswordKeyVersion,
 		&e.EncryptedComment, &e.CommentNonce, &e.CommentKeyVersion,
 		&e.CreatedAt, &e.UpdatedAt, &e.DeletedAt)
@@ -94,6 +97,9 @@ func (s *Store) ListPasswordEntries(ctx context.Context, ownerUserID string, f P
 	}
 	if f.GroupID != "" {
 		add("group_id = $%d", f.GroupID)
+	}
+	if f.EntryType != "" {
+		add("entry_type = $%d", f.EntryType)
 	}
 	if f.Domain != "" {
 		add("domain = $%d", f.Domain)
@@ -160,11 +166,13 @@ func (s *Store) CreatePasswordEntry(ctx context.Context, e *PasswordEntry) (*Pas
 	row := s.pool.QueryRow(ctx, `
 		INSERT INTO password_entries (
 			owner_user_id, company_id, group_id, scope, title, site_url, domain, favicon_url, icon_source, custom_icon,
+			entry_type, expires_at, owner, password_strength, last_used_at,
 			login, encrypted_password, password_nonce, password_key_version,
 			encrypted_comment, comment_nonce, comment_key_version)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
 		RETURNING `+passwordColumns,
 		e.OwnerUserID, e.CompanyID, e.GroupID, e.Scope, e.Title, e.SiteURL, e.Domain, e.FaviconURL, e.IconSource, e.CustomIcon,
+		e.EntryType, e.ExpiresAt, e.Owner, e.PasswordStrength, e.LastUsedAt,
 		e.Login, e.EncryptedPassword, e.PasswordNonce, e.PasswordKeyVersion,
 		e.EncryptedComment, e.CommentNonce, e.CommentKeyVersion)
 	return scanPasswordEntry(row)
@@ -175,11 +183,13 @@ func (s *Store) UpdatePasswordEntry(ctx context.Context, e *PasswordEntry) (*Pas
 	row := s.pool.QueryRow(ctx, `
 		UPDATE password_entries SET
 			company_id=$3, group_id=$4, scope=$5, title=$6, site_url=$7, domain=$8, favicon_url=$9, icon_source=$10, custom_icon=$11,
-			login=$12, encrypted_password=$13, password_nonce=$14, password_key_version=$15,
-			encrypted_comment=$16, comment_nonce=$17, comment_key_version=$18, updated_at=now()
+			entry_type=$12, expires_at=$13, owner=$14, password_strength=$15,
+			login=$16, encrypted_password=$17, password_nonce=$18, password_key_version=$19,
+			encrypted_comment=$20, comment_nonce=$21, comment_key_version=$22, updated_at=now()
 		WHERE id=$1 AND owner_user_id=$2 AND deleted_at IS NULL
 		RETURNING `+passwordColumns,
 		e.ID, e.OwnerUserID, e.CompanyID, e.GroupID, e.Scope, e.Title, e.SiteURL, e.Domain, e.FaviconURL, e.IconSource, e.CustomIcon,
+		e.EntryType, e.ExpiresAt, e.Owner, e.PasswordStrength,
 		e.Login, e.EncryptedPassword, e.PasswordNonce, e.PasswordKeyVersion,
 		e.EncryptedComment, e.CommentNonce, e.CommentKeyVersion)
 	res, err := scanPasswordEntry(row)
@@ -187,6 +197,14 @@ func (s *Store) UpdatePasswordEntry(ctx context.Context, e *PasswordEntry) (*Pas
 		return nil, ErrNotFound
 	}
 	return res, err
+}
+
+// TouchPasswordEntryUsed records that an entry's secret was just revealed.
+func (s *Store) TouchPasswordEntryUsed(ctx context.Context, ownerUserID, id string) error {
+	_, err := s.pool.Exec(ctx, `
+		UPDATE password_entries SET last_used_at = now()
+		WHERE id = $1 AND owner_user_id = $2 AND deleted_at IS NULL`, id, ownerUserID)
+	return err
 }
 
 // SoftDeletePasswordEntry marks an entry as deleted.

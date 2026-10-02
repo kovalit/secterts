@@ -226,6 +226,22 @@ button {
   white-space: nowrap;
 }
 
+.create-btn {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+.create-btn:hover {
+  background: var(--accent-hover);
+}
+
 .pfooter {
   display: flex;
   justify-content: space-between;

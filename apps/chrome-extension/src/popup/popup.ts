@@ -8,8 +8,28 @@ const domainEl = document.getElementById('domain') as HTMLElement
 const toastEl = document.getElementById('toast') as HTMLElement
 
 let currentDomain = ''
+let currentResourceUrl = ''
 let items: LookupItem[] = []
 let selectedId = ''
+
+// Resolve the web app base URL from the configured API base. On localhost the
+// web app runs on the Vite dev port; in production it shares the API origin.
+function resolveWebBase(apiBaseUrl: string): string {
+  if (apiBaseUrl.includes('localhost')) {
+    return apiBaseUrl.replace(/:8080$/, ':5173')
+  }
+  return apiBaseUrl
+}
+
+// Open the web app on a prefilled "new entry" form for the current resource,
+// used when the popup finds no saved record for the domain.
+async function openCreateInWeb() {
+  const s = await getSettings()
+  const base = resolveWebBase(s.apiBaseUrl) || 'http://localhost:5173'
+  const resource = currentResourceUrl || (currentDomain ? `https://${currentDomain}` : '')
+  const url = `${base}/passwords?new=1${resource ? `&site_url=${encodeURIComponent(resource)}` : ''}`
+  chrome.tabs.create({ url })
+}
 
 function showToast(message: string) {
   toastEl.textContent = message
@@ -25,6 +45,19 @@ function renderMessage(html: string) {
 
 function renderError(html: string) {
   content.innerHTML = `<div class="error-box">${html}</div>`
+}
+
+// Empty state: no saved entry for the domain — offer to create one in the web
+// app with the resource address prefilled.
+function renderNoEntries(domain: string) {
+  content.innerHTML = `
+    <div class="state">
+      Для <b>${escapeHtml(domain)}</b> записей нет
+      <span class="hint">Создайте пароль для этого сайта — адрес подставится автоматически.</span>
+    </div>
+    <button id="createEntry" class="create-btn">Создать запись для этого сайта</button>
+  `
+  document.getElementById('createEntry')?.addEventListener('click', () => void openCreateInWeb())
 }
 
 function iconMarkup(item?: LookupItem): string {
@@ -146,11 +179,7 @@ async function init() {
   document.getElementById('openOptions')?.addEventListener('click', () => chrome.runtime.openOptionsPage())
   document.getElementById('openWeb')?.addEventListener('click', async () => {
     const s = await getSettings()
-    // On localhost the web app runs on the Vite dev port; in production it is
-    // served from the same origin as the API.
-    const base = s.apiBaseUrl.includes('localhost')
-      ? s.apiBaseUrl.replace(/:8080$/, ':5173')
-      : s.apiBaseUrl
+    const base = resolveWebBase(s.apiBaseUrl)
     chrome.tabs.create({ url: base || 'http://localhost:5173' })
   })
 
@@ -171,13 +200,19 @@ async function init() {
     return
   }
   currentDomain = domain
+  // Remember the page origin so the "create entry" link can prefill the address.
+  try {
+    currentResourceUrl = tab?.url ? new URL(tab.url).origin : `https://${domain}`
+  } catch {
+    currentResourceUrl = `https://${domain}`
+  }
   domainEl.textContent = domain
 
   try {
     const res = await lookup(domain)
     items = res.items
     if (items.length === 0) {
-      renderMessage(`Для <b>${escapeHtml(domain)}</b> записей нет`)
+      renderNoEntries(domain)
       return
     }
     selectedId = items[0].id
