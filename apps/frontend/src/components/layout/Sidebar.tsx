@@ -9,6 +9,7 @@ import {
   ClipboardList,
   Puzzle,
   List,
+  FileLock2,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 
@@ -85,6 +86,10 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     { to: '/health', label: 'Здоровье секретов', icon: <HeartPulse size={16} /> },
   ]
 
+  const noteItems: Item[] = [
+    { to: '/secret-notes', label: 'Секретные записи', icon: <FileLock2 size={16} /> },
+  ]
+
   const secretItems: Item[] = [
     { to: '/app-secrets', label: 'Проекты', icon: <Boxes size={16} /> },
   ]
@@ -98,6 +103,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="h-full flex flex-col p-4 pt-5" onClick={onNavigate}>
       <Section title="Пароли" items={passwordItems} />
+      <Section title="Секретные записи" items={noteItems} />
       <Section title="Обзор" items={overviewItems} />
       <Section title="Секреты приложений" items={secretItems} />
       <Section title="Настройки" items={settingsItems} />

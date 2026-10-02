@@ -36,7 +36,9 @@ func (h *Handler) ProjectRoutes() http.Handler {
 	r.Post("/{project_id}/environments", h.createEnvironment)
 
 	r.Get("/{project_id}/secrets", h.listSecrets)
+	r.Get("/{project_id}/secrets/export", h.exportSecrets)
 	r.Post("/{project_id}/secrets", h.createSecret)
+	r.Post("/{project_id}/secrets/bulk", h.bulkCreateSecrets)
 	return r
 }
 
@@ -222,6 +224,50 @@ func (h *Handler) createSecret(w http.ResponseWriter, r *http.Request) {
 	ip, ua := audit.FromRequest(r)
 	h.audit.Record(r.Context(), audit.Entry{UserID: &ownerID, Action: "app_secret_created", EntityType: "app_secret", EntityID: &v.ID, IP: ip, UserAgent: ua})
 	httpx.JSON(w, http.StatusCreated, v)
+}
+
+func (h *Handler) exportSecrets(w http.ResponseWriter, r *http.Request) {
+	ownerID := auth.CurrentUserID(r.Context())
+	projectID := chi.URLParam(r, "project_id")
+	filename, content, err := h.svc.ExportEnv(r.Context(), ownerID, projectID, r.URL.Query().Get("env"))
+	if err != nil {
+		h.writeErr(w, err)
+		return
+	}
+	ip, ua := audit.FromRequest(r)
+	h.audit.Record(r.Context(), audit.Entry{UserID: &ownerID, Action: "app_secret_exported", EntityType: "app_project", EntityID: &projectID, IP: ip, UserAgent: ua})
+	httpx.JSON(w, http.StatusOK, map[string]string{"filename": filename, "content": content})
+}
+
+type bulkSecretsRequest struct {
+	Environment string `json:"environment"`
+	Items       []struct {
+		Key     string  `json:"key"`
+		Value   string  `json:"value"`
+		Comment *string `json:"comment"`
+	} `json:"items"`
+}
+
+func (h *Handler) bulkCreateSecrets(w http.ResponseWriter, r *http.Request) {
+	ownerID := auth.CurrentUserID(r.Context())
+	projectID := chi.URLParam(r, "project_id")
+	var in bulkSecretsRequest
+	if err := httpx.Decode(r, &in); err != nil {
+		httpx.Error(w, err)
+		return
+	}
+	items := make([]BulkSecretItem, 0, len(in.Items))
+	for _, it := range in.Items {
+		items = append(items, BulkSecretItem{Key: it.Key, Value: it.Value, Comment: it.Comment})
+	}
+	views, err := h.svc.BulkUpsertSecrets(r.Context(), ownerID, projectID, in.Environment, items)
+	if err != nil {
+		h.writeErr(w, err)
+		return
+	}
+	ip, ua := audit.FromRequest(r)
+	h.audit.Record(r.Context(), audit.Entry{UserID: &ownerID, Action: "app_secret_bulk_created", EntityType: "app_project", EntityID: &projectID, IP: ip, UserAgent: ua})
+	httpx.JSON(w, http.StatusCreated, views)
 }
 
 func (h *Handler) updateSecret(w http.ResponseWriter, r *http.Request) {

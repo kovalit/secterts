@@ -8,6 +8,7 @@ import { PasswordsPage } from '../features/passwords/PasswordsPage'
 import { InventoryPage } from '../features/passwords/InventoryPage'
 import { HealthPage } from '../features/passwords/HealthPage'
 import { CompaniesPage } from '../features/companies/CompaniesPage'
+import { SecretNotesPage } from '../features/secret-notes/SecretNotesPage'
 import { ProjectsPage } from '../features/app-secrets/ProjectsPage'
 import { ProjectDetailPage } from '../features/app-secrets/ProjectDetailPage'
 import { ExtensionTokensPage } from '../features/settings/ExtensionTokensPage'
@@ -30,6 +31,7 @@ export const router = createBrowserRouter([
       { path: '/inventory', element: <InventoryPage /> },
       { path: '/health', element: <HealthPage /> },
       { path: '/companies', element: <CompaniesPage /> },
+      { path: '/secret-notes', element: <SecretNotesPage /> },
       { path: '/app-secrets', element: <ProjectsPage /> },
       { path: '/app-secrets/:projectId', element: <ProjectDetailPage /> },
       { path: '/settings/security', element: <SecurityPage /> },

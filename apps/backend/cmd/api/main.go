@@ -26,6 +26,7 @@ import (
 	"github.com/kovalit/secrets-center/backend/internal/httpx"
 	"github.com/kovalit/secrets-center/backend/internal/mailer"
 	"github.com/kovalit/secrets-center/backend/internal/passwords"
+	"github.com/kovalit/secrets-center/backend/internal/secretnotes"
 )
 
 func main() {
@@ -69,6 +70,7 @@ func run() error {
 	passwordsHandler := passwords.NewHandler(passwords.New(store, enc), auditSvc)
 	companiesHandler := companies.NewHandler(store)
 	appSecretsHandler := appsecrets.NewHandler(appsecrets.New(store, enc), auditSvc)
+	secretNotesHandler := secretnotes.NewHandler(secretnotes.New(store, enc), auditSvc)
 	extensionHandler := extension.NewHandler(extension.New(store, enc), auditSvc)
 	backupHandler := backup.NewHandler(backup.New(store), auditSvc)
 
@@ -111,6 +113,7 @@ func run() error {
 			priv.Mount("/app-projects", appSecretsHandler.ProjectRoutes())
 			priv.Mount("/app-environments", appSecretsHandler.EnvironmentRoutes())
 			priv.Mount("/app-secrets", appSecretsHandler.SecretRoutes())
+			priv.Mount("/secret-notes", secretNotesHandler.Routes())
 			priv.Mount("/backups", backupHandler.Routes())
 			priv.Get("/audit-logs", auditLogsHandler(store))
 		})

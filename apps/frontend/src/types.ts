@@ -88,6 +88,26 @@ export type AppSecret = {
   updated_at: string
 }
 
+export type SecretNoteType =
+  | 'api_key'
+  | 'token'
+  | 'credentials'
+  | 'server'
+  | 'database'
+  | 'ssh_key'
+  | 'certificate'
+  | 'environment'
+  | 'generic'
+
+export type SecretNote = {
+  id: string
+  title: string
+  type: SecretNoteType
+  has_text: boolean
+  created_at: string
+  updated_at: string
+}
+
 export type ExtensionToken = {
   id: string
   name: string
