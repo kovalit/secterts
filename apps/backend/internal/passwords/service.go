@@ -19,6 +19,7 @@ var (
 	ErrPasswordReq    = errors.New("password is required")
 	ErrCompanyUnknown = errors.New("company not found")
 	ErrGroupUnknown   = errors.New("group not found")
+	ErrInvalidType    = errors.New("invalid entry_type")
 )
 
 // Service implements password entry business logic.
@@ -30,6 +31,13 @@ type Service struct {
 // New builds the passwords service.
 func New(store *db.Store, enc crypto.Encryptor) *Service {
 	return &Service{store: store, enc: enc}
+}
+
+// ValidEntryTypes is the set of allowed entry_type classifications. It mirrors
+// the CHECK constraint in migration 011.
+var ValidEntryTypes = map[string]struct{}{
+	"password": {}, "api_key": {}, "ssh_key": {}, "certificate": {},
+	"token": {}, "license": {}, "database": {}, "secret_note": {}, "other": {},
 }
 
 // WriteInput is the payload for creating/updating an entry.
@@ -44,44 +52,58 @@ type WriteInput struct {
 	Comment    *string
 	IconSource *string // "favicon" | "group" | "custom"; nil = auto-detect
 	CustomIcon *string // data URL, used when IconSource == "custom"
+
+	EntryType string     // classification; empty = "password"
+	ExpiresAt *time.Time // optional expiration date
+	Owner     *string    // responsible owner; empty = none
 }
 
 // View is the safe representation of an entry (never includes the password).
 type View struct {
-	ID          string    `json:"id"`
-	Scope       string    `json:"scope"`
-	CompanyID   *string   `json:"company_id"`
-	GroupID     string    `json:"group_id"`
-	Title       string    `json:"title"`
-	SiteURL     *string   `json:"site_url"`
-	Domain      *string   `json:"domain"`
-	FaviconURL  *string   `json:"favicon_url"`
-	IconSource  string    `json:"icon_source"`
-	CustomIcon  *string   `json:"custom_icon"`
-	Login       *string   `json:"login"`
-	HasPassword bool      `json:"has_password"`
-	HasComment  bool      `json:"has_comment"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID               string     `json:"id"`
+	Scope            string     `json:"scope"`
+	CompanyID        *string    `json:"company_id"`
+	GroupID          string     `json:"group_id"`
+	Title            string     `json:"title"`
+	SiteURL          *string    `json:"site_url"`
+	Domain           *string    `json:"domain"`
+	FaviconURL       *string    `json:"favicon_url"`
+	IconSource       string     `json:"icon_source"`
+	CustomIcon       *string    `json:"custom_icon"`
+	Login            *string    `json:"login"`
+	HasPassword      bool       `json:"has_password"`
+	HasComment       bool       `json:"has_comment"`
+	EntryType        string     `json:"entry_type"`
+	ExpiresAt        *time.Time `json:"expires_at"`
+	Owner            *string    `json:"owner"`
+	PasswordStrength *int       `json:"password_strength"`
+	LastUsedAt       *time.Time `json:"last_used_at"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
 }
 
 func toView(e *db.PasswordEntry) View {
 	return View{
-		ID:          e.ID,
-		Scope:       e.Scope,
-		CompanyID:   e.CompanyID,
-		GroupID:     e.GroupID,
-		Title:       e.Title,
-		SiteURL:     e.SiteURL,
-		Domain:      e.Domain,
-		FaviconURL:  e.FaviconURL,
-		IconSource:  e.IconSource,
-		CustomIcon:  e.CustomIcon,
-		Login:       e.Login,
-		HasPassword: len(e.EncryptedPassword) > 0,
-		HasComment:  len(e.EncryptedComment) > 0,
-		CreatedAt:   e.CreatedAt,
-		UpdatedAt:   e.UpdatedAt,
+		ID:               e.ID,
+		Scope:            e.Scope,
+		CompanyID:        e.CompanyID,
+		GroupID:          e.GroupID,
+		Title:            e.Title,
+		SiteURL:          e.SiteURL,
+		Domain:           e.Domain,
+		FaviconURL:       e.FaviconURL,
+		IconSource:       e.IconSource,
+		CustomIcon:       e.CustomIcon,
+		Login:            e.Login,
+		HasPassword:      len(e.EncryptedPassword) > 0,
+		HasComment:       len(e.EncryptedComment) > 0,
+		EntryType:        e.EntryType,
+		ExpiresAt:        e.ExpiresAt,
+		Owner:            e.Owner,
+		PasswordStrength: e.PasswordStrength,
+		LastUsedAt:       e.LastUsedAt,
+		CreatedAt:        e.CreatedAt,
+		UpdatedAt:        e.UpdatedAt,
 	}
 }
 
@@ -128,6 +150,9 @@ func (s *Service) Create(ctx context.Context, ownerID string, in WriteInput) (*V
 		SiteURL:     trimPtr(in.SiteURL),
 		Login:       in.Login,
 		IconSource:  "group",
+		EntryType:   normalizeEntryType(in.EntryType),
+		ExpiresAt:   in.ExpiresAt,
+		Owner:       trimPtr(in.Owner),
 	}
 
 	s.applyIcon(ctx, entry, in)
@@ -137,6 +162,8 @@ func (s *Service) Create(ctx context.Context, ownerID string, in WriteInput) (*V
 		return nil, err
 	}
 	entry.EncryptedPassword, entry.PasswordNonce, entry.PasswordKeyVersion = encPw, nonce, ver
+	strength := EstimateStrength(in.Password)
+	entry.PasswordStrength = &strength
 
 	if in.Comment != nil && *in.Comment != "" {
 		if err := s.encryptComment(entry, *in.Comment); err != nil {
@@ -168,6 +195,9 @@ func (s *Service) Update(ctx context.Context, ownerID, id string, in WriteInput)
 	existing.Title = strings.TrimSpace(in.Title)
 	existing.SiteURL = trimPtr(in.SiteURL)
 	existing.Login = in.Login
+	existing.EntryType = normalizeEntryType(in.EntryType)
+	existing.ExpiresAt = in.ExpiresAt
+	existing.Owner = trimPtr(in.Owner)
 
 	s.applyIcon(ctx, existing, in)
 
@@ -177,6 +207,8 @@ func (s *Service) Update(ctx context.Context, ownerID, id string, in WriteInput)
 			return nil, err
 		}
 		existing.EncryptedPassword, existing.PasswordNonce, existing.PasswordKeyVersion = encPw, nonce, ver
+		strength := EstimateStrength(in.Password)
+		existing.PasswordStrength = &strength
 	}
 
 	if in.Comment != nil {
@@ -207,7 +239,13 @@ func (s *Service) Reveal(ctx context.Context, ownerID, id string) (string, error
 	if err != nil {
 		return "", err
 	}
-	return s.enc.DecryptString(e.EncryptedPassword, e.PasswordNonce, e.PasswordKeyVersion)
+	plaintext, err := s.enc.DecryptString(e.EncryptedPassword, e.PasswordNonce, e.PasswordKeyVersion)
+	if err != nil {
+		return "", err
+	}
+	// Record usage so the health check can surface stale, unused records.
+	_ = s.store.TouchPasswordEntryUsed(ctx, ownerID, id)
+	return plaintext, nil
 }
 
 // RevealComment decrypts the optional comment.
@@ -312,7 +350,21 @@ func (s *Service) validate(ctx context.Context, ownerID string, in WriteInput, i
 	if strings.TrimSpace(in.Title) == "" {
 		return errors.New("title is required")
 	}
+	if in.EntryType != "" {
+		if _, ok := ValidEntryTypes[in.EntryType]; !ok {
+			return ErrInvalidType
+		}
+	}
 	return nil
+}
+
+// normalizeEntryType defaults an empty/unknown type to "password".
+func normalizeEntryType(t string) string {
+	t = strings.TrimSpace(t)
+	if _, ok := ValidEntryTypes[t]; !ok {
+		return "password"
+	}
+	return t
 }
 
 func trimPtr(p *string) *string {

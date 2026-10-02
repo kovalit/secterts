@@ -3,6 +3,7 @@ package passwords
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -27,6 +28,8 @@ func NewHandler(svc *Service, auditSvc *audit.Service) *Handler {
 func (h *Handler) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.Get("/", h.list)
+	r.Get("/inventory", h.inventory)
+	r.Get("/health", h.health)
 	r.Post("/", h.create)
 	r.Get("/{id}", h.get)
 	r.Put("/{id}", h.update)
@@ -63,6 +66,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		Scope:     q.Get("scope"),
 		CompanyID: q.Get("company_id"),
 		GroupID:   q.Get("group_id"),
+		EntryType: q.Get("entry_type"),
 		Query:     q.Get("q"),
 		Domain:    q.Get("domain"),
 	}
@@ -72,6 +76,26 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, items)
+}
+
+func (h *Handler) inventory(w http.ResponseWriter, r *http.Request) {
+	ownerID := auth.CurrentUserID(r.Context())
+	inv, err := h.svc.Inventory(r.Context(), ownerID)
+	if err != nil {
+		httpx.Error(w, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, inv)
+}
+
+func (h *Handler) health(w http.ResponseWriter, r *http.Request) {
+	ownerID := auth.CurrentUserID(r.Context())
+	report, err := h.svc.Health(r.Context(), ownerID)
+	if err != nil {
+		httpx.Error(w, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, report)
 }
 
 func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
@@ -85,16 +109,19 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 }
 
 type writeRequest struct {
-	Scope      string  `json:"scope"`
-	CompanyID  *string `json:"company_id"`
-	GroupID    string  `json:"group_id"`
-	Title      string  `json:"title"`
-	SiteURL    *string `json:"site_url"`
-	Login      *string `json:"login"`
-	Password   string  `json:"password"`
-	Comment    *string `json:"comment"`
-	IconSource *string `json:"icon_source"`
-	CustomIcon *string `json:"custom_icon"`
+	Scope      string     `json:"scope"`
+	CompanyID  *string    `json:"company_id"`
+	GroupID    string     `json:"group_id"`
+	Title      string     `json:"title"`
+	SiteURL    *string    `json:"site_url"`
+	Login      *string    `json:"login"`
+	Password   string     `json:"password"`
+	Comment    *string    `json:"comment"`
+	IconSource *string    `json:"icon_source"`
+	CustomIcon *string    `json:"custom_icon"`
+	EntryType  string     `json:"entry_type"`
+	ExpiresAt  *time.Time `json:"expires_at"`
+	Owner      *string    `json:"owner"`
 }
 
 func (in writeRequest) toInput() WriteInput {
@@ -109,6 +136,9 @@ func (in writeRequest) toInput() WriteInput {
 		Comment:    in.Comment,
 		IconSource: in.IconSource,
 		CustomIcon: in.CustomIcon,
+		EntryType:  in.EntryType,
+		ExpiresAt:  in.ExpiresAt,
+		Owner:      in.Owner,
 	}
 }
 
@@ -179,7 +209,7 @@ func (h *Handler) writeErr(w http.ResponseWriter, err error) {
 		httpx.Error(w, httpx.ErrNotFound("password entry not found"))
 	case errors.Is(err, ErrInvalidScope), errors.Is(err, ErrCompanyReq), errors.Is(err, ErrCompanyOnPers),
 		errors.Is(err, ErrGroupRequired), errors.Is(err, ErrPasswordReq),
-		errors.Is(err, ErrCompanyUnknown), errors.Is(err, ErrGroupUnknown):
+		errors.Is(err, ErrCompanyUnknown), errors.Is(err, ErrGroupUnknown), errors.Is(err, ErrInvalidType):
 		httpx.Error(w, httpx.ErrBadRequest(err.Error()))
 	default:
 		httpx.Error(w, err)

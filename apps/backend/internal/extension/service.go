@@ -138,5 +138,11 @@ func (s *Service) Reveal(ctx context.Context, userID, entryID, domain string) (s
 	if len(e.EncryptedPassword) == 0 {
 		return "", ErrNoPassword
 	}
-	return s.enc.DecryptString(e.EncryptedPassword, e.PasswordNonce, e.PasswordKeyVersion)
+	plaintext, err := s.enc.DecryptString(e.EncryptedPassword, e.PasswordNonce, e.PasswordKeyVersion)
+	if err != nil {
+		return "", err
+	}
+	// Record usage so the health check can surface stale, unused records.
+	_ = s.store.TouchPasswordEntryUsed(ctx, userID, entryID)
+	return plaintext, nil
 }

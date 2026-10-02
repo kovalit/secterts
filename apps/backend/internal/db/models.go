@@ -76,6 +76,17 @@ type PasswordEntry struct {
 	IconSource string
 	CustomIcon *string
 
+	// EntryType classifies the record (password, api_key, ssh_key, ...).
+	EntryType string
+	// ExpiresAt is an optional expiration date (API keys, certs, tokens, ...).
+	ExpiresAt *time.Time
+	// Owner is the free-text responsible owner; empty = "secret without owner".
+	Owner *string
+	// PasswordStrength is a 0..4 score computed on write (nil = unknown).
+	PasswordStrength *int
+	// LastUsedAt is the last time the secret was revealed (nil = never).
+	LastUsedAt *time.Time
+
 	Login              *string
 	EncryptedPassword  []byte
 	PasswordNonce      []byte

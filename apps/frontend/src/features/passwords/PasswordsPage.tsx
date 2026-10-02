@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Copy, KeyRound, Pencil, Plus, Search, Trash2 } from 'lucide-react'
@@ -13,11 +13,13 @@ import { passwordsApi } from '../../api/passwords'
 import { companiesApi } from '../../api/companies'
 import { copyToClipboard } from '../../lib/clipboard'
 import { useToast } from '../../components/ui/Toast'
+import { ENTRY_TYPES, entryTypeLabel } from '../../lib/entryTypes'
 import type { PasswordEntry } from '../../types'
 
 export function PasswordsPage() {
   const [params, setParams] = useSearchParams()
   const scope = params.get('scope') ?? ''
+  const entryType = params.get('entry_type') ?? ''
   const qc = useQueryClient()
   const toast = useToast()
 
@@ -26,12 +28,28 @@ export function PasswordsPage() {
   const [companyId, setCompanyId] = useState('')
   const [editorOpen, setEditorOpen] = useState(false)
   const [editing, setEditing] = useState<PasswordEntry | null>(null)
+  const [prefill, setPrefill] = useState<{ site_url?: string } | null>(null)
   const [toDelete, setToDelete] = useState<PasswordEntry | null>(null)
 
   const groupsQ = useQuery({ queryKey: ['password-groups'], queryFn: passwordsApi.groups })
   const companiesQ = useQuery({ queryKey: ['companies'], queryFn: companiesApi.list })
 
-  const filters = { scope, q: search, group_id: groupId, company_id: companyId }
+  // Extension deep-link: /passwords?new=1&site_url=example.com opens a prefilled
+  // "new entry" drawer when the extension finds no record for the domain.
+  useEffect(() => {
+    if (params.get('new') === null) return
+    const site = params.get('site_url') ?? ''
+    setEditing(null)
+    setPrefill(site ? { site_url: site } : null)
+    setEditorOpen(true)
+    const next = new URLSearchParams(params)
+    next.delete('new')
+    next.delete('site_url')
+    setParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const filters = { scope, entry_type: entryType, q: search, group_id: groupId, company_id: companyId }
   const listQ = useQuery({
     queryKey: ['passwords', filters],
     queryFn: () => passwordsApi.list(filters),
@@ -63,10 +81,12 @@ export function PasswordsPage() {
 
   const openCreate = () => {
     setEditing(null)
+    setPrefill(null)
     setEditorOpen(true)
   }
   const openEdit = (e: PasswordEntry) => {
     setEditing(e)
+    setPrefill(null)
     setEditorOpen(true)
   }
 
@@ -80,6 +100,13 @@ export function PasswordsPage() {
     const p = new URLSearchParams(params)
     if (next) p.set('scope', next)
     else p.delete('scope')
+    setParams(p)
+  }
+
+  const setEntryType = (next: string) => {
+    const p = new URLSearchParams(params)
+    if (next) p.set('entry_type', next)
+    else p.delete('entry_type')
     setParams(p)
   }
 
@@ -114,6 +141,14 @@ export function PasswordsPage() {
           <option value="">Все типы</option>
           <option value="personal">Личные</option>
           <option value="commercial">Коммерческие</option>
+        </select>
+        <select className="select w-auto" value={entryType} onChange={(e) => setEntryType(e.target.value)}>
+          <option value="">Все типы записей</option>
+          {ENTRY_TYPES.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
         </select>
         <select className="select w-auto" value={groupId} onChange={(e) => setGroupId(e.target.value)}>
           <option value="">Все группы</option>
@@ -183,7 +218,10 @@ export function PasswordsPage() {
                           >
                             {e.title}
                           </button>
-                          {e.domain && <div className="text-[12.5px] text-ink-muted truncate">{e.domain}</div>}
+                          <div className="text-[12.5px] text-ink-muted truncate">
+                            {entryTypeLabel(e.entry_type)}
+                            {e.domain ? ` · ${e.domain}` : ''}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -286,6 +324,7 @@ export function PasswordsPage() {
         entry={editing}
         groups={groups}
         companies={companies}
+        prefill={prefill}
       />
 
       <ConfirmDialog

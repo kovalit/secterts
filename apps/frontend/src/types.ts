@@ -2,6 +2,17 @@
 
 export type PasswordScope = 'personal' | 'commercial'
 
+export type EntryType =
+  | 'password'
+  | 'api_key'
+  | 'ssh_key'
+  | 'certificate'
+  | 'token'
+  | 'license'
+  | 'database'
+  | 'secret_note'
+  | 'other'
+
 export type User = {
   id: string
   email: string
@@ -39,6 +50,11 @@ export type PasswordEntry = {
   login?: string | null
   has_password: boolean
   has_comment: boolean
+  entry_type: EntryType
+  expires_at?: string | null
+  owner?: string | null
+  password_strength?: number | null
+  last_used_at?: string | null
   created_at: string
   updated_at: string
 }
