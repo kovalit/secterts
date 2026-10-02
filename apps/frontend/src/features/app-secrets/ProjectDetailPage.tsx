@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, KeySquare, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, ClipboardPaste, KeySquare, Pencil, Plus, Trash2 } from 'lucide-react'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageLoader, Spinner } from '../../components/ui/Spinner'
@@ -12,6 +12,8 @@ import { useToast } from '../../components/ui/Toast'
 import { appSecretsApi } from '../../api/appSecrets'
 import { ApiError } from '../../api/client'
 import { formatDate } from '../../lib/formatDate'
+import { BulkSecretsDialog } from './BulkSecretsDialog'
+import { useEnvPaste } from './useEnvPaste'
 import type { AppSecret } from '../../types'
 
 export function ProjectDetailPage() {
@@ -26,6 +28,8 @@ export function ProjectDetailPage() {
   const [value, setValue] = useState('')
   const [comment, setComment] = useState('')
   const [toDelete, setToDelete] = useState<AppSecret | null>(null)
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkText, setBulkText] = useState('')
 
   const projectQ = useQuery({ queryKey: ['app-project', projectId], queryFn: () => appSecretsApi.getProject(projectId) })
   const envsQ = useQuery({
@@ -82,6 +86,17 @@ export function ProjectDetailPage() {
     onError: () => toast.error('Не удалось удалить'),
   })
 
+  // Pasting a KEY=VALUE block opens the bulk-create dialog for this project.
+  useEnvPaste(!open && !bulkOpen, (text) => {
+    setBulkText(text)
+    setBulkOpen(true)
+  })
+
+  const openBulk = () => {
+    setBulkText('')
+    setBulkOpen(true)
+  }
+
   const openCreate = () => {
     setEditing(null)
     setKey('')
@@ -113,10 +128,16 @@ export function ProjectDetailPage() {
         title={projectQ.data?.name ?? 'Проект'}
         description={projectQ.data?.description ?? 'Значения секретов зашифрованы и не показываются в списке.'}
         action={
-          <button className="btn btn-primary" onClick={openCreate} disabled={!currentEnv}>
-            <Plus size={16} />
-            Добавить секрет
-          </button>
+          <div className="flex items-center gap-2">
+            <button className="btn" onClick={openBulk} title="Создать секреты списком (Ctrl+V)">
+              <ClipboardPaste size={16} />
+              Списком
+            </button>
+            <button className="btn btn-primary" onClick={openCreate} disabled={!currentEnv}>
+              <Plus size={16} />
+              Добавить секрет
+            </button>
+          </div>
         }
       />
 
@@ -247,6 +268,19 @@ export function ProjectDetailPage() {
           </div>
         </div>
       </Drawer>
+
+      <BulkSecretsDialog
+        open={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        initialText={bulkText}
+        projects={projectQ.data ? [projectQ.data] : []}
+        fixedProject={projectQ.data ? { id: projectQ.data.id, name: projectQ.data.name } : null}
+        defaultEnv={env}
+        onDone={() => {
+          qc.invalidateQueries({ queryKey: ['app-secrets', projectId] })
+          qc.invalidateQueries({ queryKey: ['app-project', projectId] })
+        }}
+      />
 
       <ConfirmDialog
         open={!!toDelete}

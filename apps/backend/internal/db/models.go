@@ -130,6 +130,23 @@ type AppSecret struct {
 	DeletedAt *time.Time
 }
 
+// SecretNote stores an encrypted free-form secret (title + type + text).
+type SecretNote struct {
+	ID          string
+	OwnerUserID string
+
+	Title string
+	Type  string
+
+	EncryptedText  []byte
+	TextNonce      []byte
+	TextKeyVersion int
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt *time.Time
+}
+
 // ExtensionToken is a hashed bearer token used by the Chrome extension.
 type ExtensionToken struct {
 	ID         string

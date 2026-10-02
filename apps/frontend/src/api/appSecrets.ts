@@ -14,6 +14,17 @@ export type SecretWrite = {
   comment?: string | null
 }
 
+export type BulkSecretItem = {
+  key: string
+  value: string
+  comment?: string | null
+}
+
+export type BulkSecretsWrite = {
+  environment: string
+  items: BulkSecretItem[]
+}
+
 export const appSecretsApi = {
   listProjects: () => apiFetch<AppProject[]>('/api/app-projects'),
   getProject: (id: string) => apiFetch<AppProject>(`/api/app-projects/${id}`),
@@ -30,6 +41,8 @@ export const appSecretsApi = {
     apiFetch<AppSecret[]>(`/api/app-projects/${projectId}/secrets?env=${encodeURIComponent(env)}`),
   createSecret: (projectId: string, body: SecretWrite) =>
     apiFetch<AppSecret>(`/api/app-projects/${projectId}/secrets`, { method: 'POST', body }),
+  bulkCreateSecrets: (projectId: string, body: BulkSecretsWrite) =>
+    apiFetch<AppSecret[]>(`/api/app-projects/${projectId}/secrets/bulk`, { method: 'POST', body }),
   updateSecret: (id: string, body: SecretWrite) =>
     apiFetch<AppSecret>(`/api/app-secrets/${id}`, { method: 'PUT', body }),
   removeSecret: (id: string) => apiFetch<void>(`/api/app-secrets/${id}`, { method: 'DELETE' }),

@@ -279,6 +279,30 @@ func (s *Store) CreateSecret(ctx context.Context, a *AppSecret) (*AppSecret, err
 	return scanAppSecret(row)
 }
 
+// UpsertSecret inserts a secret or, when one already exists for the same
+// project/environment/key (including a soft-deleted one), overwrites its value
+// and revives it. The comment is only overwritten when setComment is true, so
+// bulk imports that carry no comment keep any existing one.
+func (s *Store) UpsertSecret(ctx context.Context, a *AppSecret, setComment bool) (*AppSecret, error) {
+	row := s.pool.QueryRow(ctx, `
+		INSERT INTO app_secrets (project_id, environment_id, key, encrypted_value, value_nonce, value_key_version,
+			encrypted_comment, comment_nonce, comment_key_version)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+		ON CONFLICT (project_id, environment_id, key) DO UPDATE SET
+			encrypted_value = EXCLUDED.encrypted_value,
+			value_nonce = EXCLUDED.value_nonce,
+			value_key_version = EXCLUDED.value_key_version,
+			encrypted_comment = CASE WHEN $10 THEN EXCLUDED.encrypted_comment ELSE app_secrets.encrypted_comment END,
+			comment_nonce = CASE WHEN $10 THEN EXCLUDED.comment_nonce ELSE app_secrets.comment_nonce END,
+			comment_key_version = CASE WHEN $10 THEN EXCLUDED.comment_key_version ELSE app_secrets.comment_key_version END,
+			deleted_at = NULL,
+			updated_at = now()
+		RETURNING `+appSecretColumns,
+		a.ProjectID, a.EnvironmentID, a.Key, a.EncryptedValue, a.ValueNonce, a.ValueKeyVersion,
+		a.EncryptedComment, a.CommentNonce, a.CommentKeyVersion, setComment)
+	return scanAppSecret(row)
+}
+
 // UpdateSecret rewrites an existing secret.
 func (s *Store) UpdateSecret(ctx context.Context, a *AppSecret) (*AppSecret, error) {
 	row := s.pool.QueryRow(ctx, `

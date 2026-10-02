@@ -46,14 +46,14 @@ func New(store *db.Store, enc crypto.Encryptor) *Service {
 
 // ProjectView includes environment/secret counts.
 type ProjectView struct {
-	ID           string    `json:"id"`
-	CompanyID    *string   `json:"company_id"`
-	Name         string    `json:"name"`
-	Description  *string   `json:"description"`
-	EnvCount     int       `json:"env_count"`
-	SecretCount  int       `json:"secret_count"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID          string    `json:"id"`
+	CompanyID   *string   `json:"company_id"`
+	Name        string    `json:"name"`
+	Description *string   `json:"description"`
+	EnvCount    int       `json:"env_count"`
+	SecretCount int       `json:"secret_count"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 // EnvironmentView is the environment representation.
@@ -280,6 +280,71 @@ func (s *Service) CreateSecret(ctx context.Context, ownerID, projectID string, i
 	}
 	v := toSecretView(created)
 	return &v, nil
+}
+
+// BulkSecretItem is one key/value pair in a bulk import.
+type BulkSecretItem struct {
+	Key     string
+	Value   string
+	Comment *string
+}
+
+// BulkUpsertSecrets creates or overwrites many secrets in one environment at
+// once. It resolves the environment by id or name, skips entries with a blank
+// key, and returns the resulting views. Existing keys (even previously deleted
+// ones) are overwritten with the new value.
+func (s *Service) BulkUpsertSecrets(ctx context.Context, ownerID, projectID, envParam string, items []BulkSecretItem) ([]SecretView, error) {
+	if _, err := s.store.GetAppProject(ctx, ownerID, projectID); err != nil {
+		return nil, err
+	}
+	env, err := s.resolveEnv(ctx, projectID, envParam)
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate up front so a bad entry does not leave a partial import.
+	type prepared struct {
+		key     string
+		value   string
+		comment *string
+	}
+	var ready []prepared
+	for _, it := range items {
+		key := strings.TrimSpace(it.Key)
+		if key == "" {
+			continue
+		}
+		if it.Value == "" {
+			return nil, ErrValueReq
+		}
+		ready = append(ready, prepared{key: key, value: it.Value, comment: it.Comment})
+	}
+	if len(ready) == 0 {
+		return nil, ErrKeyReq
+	}
+
+	out := make([]SecretView, 0, len(ready))
+	for _, p := range ready {
+		secret := &db.AppSecret{ProjectID: projectID, EnvironmentID: env.ID, Key: p.key}
+		encVal, nonce, ver, err := s.enc.EncryptString(p.value)
+		if err != nil {
+			return nil, err
+		}
+		secret.EncryptedValue, secret.ValueNonce, secret.ValueKeyVersion = encVal, nonce, ver
+
+		setComment := p.comment != nil
+		if setComment && *p.comment != "" {
+			if err := s.encryptComment(secret, *p.comment); err != nil {
+				return nil, err
+			}
+		}
+		created, err := s.store.UpsertSecret(ctx, secret, setComment)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, toSecretView(created))
+	}
+	return out, nil
 }
 
 // UpdateSecret rewrites a secret after verifying ownership.

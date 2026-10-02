@@ -6,6 +6,7 @@ import { RegisterPage } from '../features/auth/RegisterPage'
 import { VerifyEmailCodePage } from '../features/auth/VerifyEmailCodePage'
 import { PasswordsPage } from '../features/passwords/PasswordsPage'
 import { CompaniesPage } from '../features/companies/CompaniesPage'
+import { SecretNotesPage } from '../features/secret-notes/SecretNotesPage'
 import { ProjectsPage } from '../features/app-secrets/ProjectsPage'
 import { ProjectDetailPage } from '../features/app-secrets/ProjectDetailPage'
 import { ExtensionTokensPage } from '../features/settings/ExtensionTokensPage'
@@ -26,6 +27,7 @@ export const router = createBrowserRouter([
       { path: '/', element: <Navigate to="/passwords" replace /> },
       { path: '/passwords', element: <PasswordsPage /> },
       { path: '/companies', element: <CompaniesPage /> },
+      { path: '/secret-notes', element: <SecretNotesPage /> },
       { path: '/app-secrets', element: <ProjectsPage /> },
       { path: '/app-secrets/:projectId', element: <ProjectDetailPage /> },
       { path: '/settings/security', element: <SecurityPage /> },

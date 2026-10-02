@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Boxes, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Boxes, ClipboardPaste, Pencil, Plus, Trash2 } from 'lucide-react'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageLoader, Spinner } from '../../components/ui/Spinner'
@@ -12,6 +12,8 @@ import { appSecretsApi } from '../../api/appSecrets'
 import { companiesApi } from '../../api/companies'
 import { ApiError } from '../../api/client'
 import { formatDate } from '../../lib/formatDate'
+import { BulkSecretsDialog } from './BulkSecretsDialog'
+import { useEnvPaste } from './useEnvPaste'
 import type { AppProject } from '../../types'
 
 export function ProjectsPage() {
@@ -23,10 +25,23 @@ export function ProjectsPage() {
   const [description, setDescription] = useState('')
   const [companyId, setCompanyId] = useState('')
   const [toDelete, setToDelete] = useState<AppProject | null>(null)
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkText, setBulkText] = useState('')
 
   const listQ = useQuery({ queryKey: ['app-projects'], queryFn: appSecretsApi.listProjects })
   const companiesQ = useQuery({ queryKey: ['companies'], queryFn: companiesApi.list })
   const companies = companiesQ.data ?? []
+
+  // Pasting a KEY=VALUE block anywhere opens the bulk-create dialog.
+  useEnvPaste(!open && !bulkOpen, (text) => {
+    setBulkText(text)
+    setBulkOpen(true)
+  })
+
+  const openBulk = () => {
+    setBulkText('')
+    setBulkOpen(true)
+  }
 
   const saveMutation = useMutation({
     mutationFn: () => {
@@ -73,12 +88,18 @@ export function ProjectsPage() {
       <PageHeader
         eyebrow="Секреты приложений"
         title="Проекты"
-        description="Каждый проект содержит окружения (dev / staging / prod) и зашифрованные секреты."
+        description="Каждый проект содержит окружения (dev / staging / prod) и зашифрованные секреты. Вставьте список KEY=VALUE (Ctrl+V), чтобы создать секреты сразу пачкой."
         action={
-          <button className="btn btn-primary" onClick={openCreate}>
-            <Plus size={16} />
-            Новый проект
-          </button>
+          <div className="flex items-center gap-2">
+            <button className="btn" onClick={openBulk} title="Создать секреты списком (Ctrl+V)">
+              <ClipboardPaste size={16} />
+              Списком
+            </button>
+            <button className="btn btn-primary" onClick={openCreate}>
+              <Plus size={16} />
+              Новый проект
+            </button>
+          </div>
         }
       />
 
@@ -193,6 +214,13 @@ export function ProjectsPage() {
           )}
         </div>
       </Drawer>
+
+      <BulkSecretsDialog
+        open={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        initialText={bulkText}
+        projects={projects}
+      />
 
       <ConfirmDialog
         open={!!toDelete}

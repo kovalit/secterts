@@ -1,12 +1,12 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   KeyRound,
-  User as UserIcon,
   Building2,
   Boxes,
   ShieldCheck,
   Puzzle,
   List,
+  FileLock2,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 
@@ -63,19 +63,11 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       end: true,
       match: (s) => !s.includes('scope='),
     },
-    {
-      to: '/passwords?scope=personal',
-      label: 'Личные',
-      icon: <UserIcon size={16} />,
-      match: (s) => s.includes('scope=personal'),
-    },
-    {
-      to: '/passwords?scope=commercial',
-      label: 'Коммерческие',
-      icon: <Building2 size={16} />,
-      match: (s) => s.includes('scope=commercial'),
-    },
     { to: '/companies', label: 'Компании', icon: <Building2 size={16} /> },
+  ]
+
+  const noteItems: Item[] = [
+    { to: '/secret-notes', label: 'Секретные записи', icon: <FileLock2 size={16} /> },
   ]
 
   const secretItems: Item[] = [
@@ -91,6 +83,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="h-full flex flex-col p-4 pt-5" onClick={onNavigate}>
       <Section title="Пароли" items={passwordItems} />
+      <Section title="Секретные записи" items={noteItems} />
       <Section title="Секреты приложений" items={secretItems} />
       <Section title="Настройки" items={settingsItems} />
     </div>
